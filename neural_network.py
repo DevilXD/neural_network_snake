@@ -366,7 +366,7 @@ def crossover_networks(nets):
 
 
 # create the population
-population = 4
+population = 100
 net_args = [12, 10, 8, 4]
 networks = [Network(net_args) for _ in range(population)]
 
