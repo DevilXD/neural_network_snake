@@ -1,0 +1,10 @@
+# exclude Python's cache files
+__pycache__
+# exclude MyPy cache
+.mypy_cache
+# exclude Pytest cache
+.pytest_cache
+# exclude local VSCode settings
+.vscode
+# exclude the copy-paste test code file
+/test.py

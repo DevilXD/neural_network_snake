@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 from copy import copy
 from time import sleep
@@ -51,24 +53,24 @@ class PixelArray:
                 for i, v in enumerate(value):
                     self._image_data[p + i] = v
         elif isinstance(index, tuple):
-            rx, ry = index
-            if isinstance(rx, int):
-                rx = (rx % self._image.width,)
-            elif isinstance(rx, slice):
-                rx = slice_to_range(rx, self._image.width)
+            rxi, ryi = index
+            if isinstance(rxi, int):
+                rx = (rxi % self._image.width,)
+            elif isinstance(rxi, slice):
+                rx = slice_to_range(rxi, self._image.width)
             else:
                 raise KeyError
-            if isinstance(ry, int):
-                ry = (ry % self._image.height,)
-            elif isinstance(ry, slice):
-                ry = slice_to_range(ry, self._image.height)
+            if isinstance(ryi, int):
+                ry = (ryi % self._image.height,)
+            elif isinstance(ryi, slice):
+                ry = slice_to_range(ryi, self._image.height)
             else:
                 raise KeyError
             for x in rx:
                 for y in ry:
-                    index = (x + y * self._image.width) * 4
+                    idx = (x + y * self._image.width) * 4
                     for i, v in enumerate(value):
-                        self._image_data[index + i] = v
+                        self._image_data[idx + i] = v
         else:
             raise KeyError
 
@@ -105,7 +107,7 @@ class Sprite(OriginalSprite):
             ),
         )
 
-    def overlaps(self, other: Union["Sprite", Window], *, fully: bool = False):
+    def overlaps(self, other: Union[Sprite, Window], *, fully: bool = False):
         p1, p2 = self.bounding_box()
         if isinstance(other, Sprite):
             p3, p4 = other.bounding_box()
@@ -391,7 +393,7 @@ class Game:
         elif angle == 270:  # left turn
             segment = Sprite(snake_cor2, old_head.x, old_head.y, batch=self.main_batch)
             segment.rotation = self.head.rotation
-        self.snake.insert(0, segment)
+        self.snake.insert(0, segment)  # type: ignore
         # detect collision with the snake body
         for segment in self.snake:
             if self.head.overlaps(segment):

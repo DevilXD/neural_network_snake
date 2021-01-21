@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 from time import sleep
 from functools import partial
@@ -11,6 +13,18 @@ from snake import Game
 Entry = namedtuple("Entry", ["inputs", "outputs"])
 
 
+def sigmoid(value, *, derivative: bool = False):
+    if derivative:
+        v = sigmoid(value)
+        return v * (1 - v)
+    else:
+        if value < -709:
+            return -1.0
+        elif value > 709:
+            return 1.0
+        return 1 / (1 + exp(-value))
+
+
 def tanh(value, *, derivative: bool = False):
     if derivative:
         return 1 - pow(tanh(value), 2)
@@ -19,7 +33,21 @@ def tanh(value, *, derivative: bool = False):
             return -1.0
         elif value > 709:
             return 1.0
-        return (exp(value) - exp(-value)) / (exp(value) + exp(-value))
+        pos = exp(value)
+        neg = exp(-value)
+        return (pos - neg) / (pos + neg)
+
+
+def relu(value, *, derivative: bool = False):
+    if derivative:
+        if value > 0:
+            return 1
+        elif value < 0:
+            return 0
+        else:
+            return 0.5
+    else:
+        return max(0, value)
 
 
 class IntegrityError(Exception):
@@ -38,7 +66,7 @@ class Network:
     )
 
     def __init__(
-        self, layer_counts: List[int], learning_rate: float = 0.05, momentum_mod: float = 0.05
+        self, layer_counts: List[int], learning_rate: float = 0.05, momentum_mod: float = 0.0
     ):
         if len(layer_counts) < 2:
             raise IntegrityError("Can't create network with fewer than 2 Layers!")
@@ -75,7 +103,7 @@ class Network:
         for inputs, targets in dataset:
             self.feed_forward(inputs)
             network_error += self.back_propagate(targets)
-        return network_error
+        return network_error / len(dataset)
 
     def teach_loop(self, dataset: List[Entry], precision_goal: float = 0.01):
         # validate first
@@ -96,8 +124,9 @@ class Network:
         network_error = inf
         while network_error > precision_goal:
             network_error = self.teach(dataset)
+            yield network_error
 
-    def SP_crossover(self, other: "Network") -> Tuple["Network", "Network"]:
+    def SP_crossover(self, other: Network) -> Tuple[Network, Network]:
         cls = type(self)
         n1 = self.export_data()
         n2 = other.export_data()
@@ -109,7 +138,7 @@ class Network:
         n4.import_data(n2[:n] + n1[n:])
         return (n3, n4)
 
-    def R_crossover(self, other: "Network") -> Tuple["Network", "Network"]:
+    def R_crossover(self, other: Network) -> Tuple[Network, Network]:
         cls = type(self)
         n1 = self.export_data()
         n2 = other.export_data()
@@ -158,7 +187,7 @@ class Network:
 class Layer:
     __slots__ = ("network", "neurons")
 
-    def __init__(self, network, neuron_count: int, previous_layer: Optional["Layer"] = None):
+    def __init__(self, network, neuron_count: int, previous_layer: Optional[Layer] = None):
         self.network = network
         self.neurons = [Neuron(self, previous_layer) for _ in range(neuron_count)]
 
@@ -182,7 +211,7 @@ class Layer:
         errors = [target - output for target, output in zip(targets, outputs)]
         for error, neuron in zip(errors, self.neurons):
             neuron.set_error(error)
-        return sum(e ** 2 for e in errors)
+        return sum(pow(e, 2) for e in errors)
 
     def get_outputs(self):
         return [neuron.output for neuron in self.neurons]
@@ -215,12 +244,11 @@ class Neuron:
         self.error = 0
         self.output = 0
         self.bias = 2 * random.random() - 1
-        self.activation_f = tanh
+        self.activation_f = tanh  # use tanh by default
 
         if previous_layer is not None:
             for neuron in previous_layer.neurons:
-                con = Connection(neuron)
-                self.dendrons.append(con)
+                self.dendrons.append(Connection(neuron))
 
     def __repr__(self):
         return "{}({}, {}, {})".format(self.__class__.__name__, self.output, self.bias, self.error)
@@ -244,10 +272,9 @@ class Neuron:
 
     def back_propagate(self):
         gradient = self.error * self.activation_f(self.output, derivative=True)
-        learning_rate = self.layer.network.learning_rate
         for dendron in self.dendrons:
             dendron.adjust_weight(gradient)
-        self.bias += learning_rate * gradient
+        self.bias += self.layer.network.learning_rate * gradient
         self.error = 0
 
     def export_data(self) -> List[float]:
@@ -277,21 +304,15 @@ class Connection:
         return "{}({}, {})".format(self.__class__.__name__, self.weight, self.delta_weight)
 
     def adjust_weight(self, gradient):
-        network = self.source_neuron.layer.network
-        delta = network.learning_rate * self.source_neuron.output * gradient
-        self.delta_weight = (delta + network.momentum_mod * self.delta_weight)
-        self.weight += self.delta_weight
         # pass the gradient to the source neuron
         self.source_neuron.add_error(self.weight * gradient)
+        network = self.source_neuron.layer.network
+        delta = gradient * network.learning_rate * self.source_neuron.output
+        self.delta_weight = delta + network.momentum_mod * self.delta_weight
+        self.weight += self.delta_weight
 
     def get_value(self):
         return self.source_neuron.output * self.weight
-
-
-# init the snake game
-game = Game()
-# run it faaaaaaaast
-game.fps = 600
 
 
 def dist(v1, v2):
@@ -356,7 +377,7 @@ def evaluate_networks(nets):
 
 
 def select_networks(nets):
-    return networks[:len(networks) // 2]
+    return nets[:len(nets) // 2]
 
 
 def crossover_networks(nets):
@@ -365,42 +386,48 @@ def crossover_networks(nets):
     return nets
 
 
-# create the population
-population = 100
-net_args = [12, 10, 8, 4]
-networks = [Network(net_args) for _ in range(population)]
+if __name__ == "__main__":
+    # init the snake game
+    game = Game()
+    # run it faaaaaaaast
+    game.fps = 600
 
-best_net = None
-generation = 0
-max_generation = 20
-while True:
-    generation += 1
-    print(f"Generation: #{generation}")
-    # evaluate for fitness
-    evaluate_networks(networks)
-    # sort with fittest at the top
-    networks.sort(key=lambda n: n.fitness, reverse=True)
-    print(f"Best fitness: {networks[0].fitness}")
-    # save the best net
-    if best_net is None or networks[0].fitness > best_net.fitness:
-        best_net = networks[0]
-        print(f"New best: {best_net.fitness}\n")
-    if generation >= max_generation:
-        break
-    # select for the next generation
-    networks = select_networks(networks)
-    # crossover for the next generation
-    networks = crossover_networks(networks)
+    # create the population
+    population = 100
+    net_args = [12, 10, 8, 4]
+    networks = [Network(net_args) for _ in range(population)]
 
-# run the best saved network
-print(f"\nRunning best network: {best_net.fitness} fitness")
-# attach the controller
-game.external = partial(controller, best_net)
-game.fps = 8
-while not game.window.has_exit:
-    # reset the game
-    game.reset()
-    # run the game
-    game.run()
-    print(f"Score: {game.score}")
-    sleep(1)
+    best_net = None
+    generation = 0
+    max_generation = 50
+    while True:
+        generation += 1
+        print(f"Generation: #{generation}")
+        # evaluate for fitness
+        evaluate_networks(networks)
+        # sort with fittest at the top
+        networks.sort(key=lambda n: n.fitness, reverse=True)
+        print(f"Best fitness: {networks[0].fitness}")
+        # save the best net
+        if best_net is None or networks[0].fitness > best_net.fitness:
+            best_net = networks[0]
+            print(f"New best: {best_net.fitness}\n")
+        if generation >= max_generation:
+            break
+        # select for the next generation
+        networks = select_networks(networks)
+        # crossover for the next generation
+        networks = crossover_networks(networks)
+
+    # run the best saved network
+    print(f"\nRunning best network: {best_net.fitness} fitness")
+    # attach the controller
+    game.external = partial(controller, best_net)
+    game.fps = 8
+    while not game.window.has_exit:
+        # reset the game
+        game.reset()
+        # run the game
+        game.run()
+        print(f"Score: {game.score}")
+        sleep(1)
