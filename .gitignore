@@ -8,3 +8,5 @@ __pycache__
 .vscode
 # exclude the copy-paste test code file
 /test.py
+# exclude temp excel editing file
+~$*.xlsx
