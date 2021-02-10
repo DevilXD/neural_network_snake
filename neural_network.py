@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+import csv
 import random
 from time import sleep
+from math import exp, inf
 from functools import partial
 from contextlib import suppress
-from math import exp, inf
 from collections import namedtuple
+from locale import setlocale, LC_ALL, str as lstr
 from typing import Union, List, Tuple, Optional, Iterator, Generator
 
 from snake import Game
 
 Entry = namedtuple("Entry", ["inputs", "outputs"])
+
+
+# use Polish (system) locale (comma as decimal point, for proper Excel formatting)
+setlocale(LC_ALL, '')
 
 
 def sigmoid(value, *, derivative: bool = False):
@@ -62,7 +68,6 @@ class Network:
         "learning_rate",
         "momentum_mod",
         "fitness",
-        "strikes",
     )
 
     def __init__(
@@ -80,7 +85,6 @@ class Network:
         self.learning_rate = learning_rate
         self.momentum_mod = momentum_mod
         self.fitness = 0
-        self.strikes = 0
 
     def set_activation_f(self, func):
         for layer in self.layers:
@@ -251,7 +255,7 @@ class Neuron:
                 self.dendrons.append(Connection(neuron))
 
     def __repr__(self):
-        return "{}({}, {}, {})".format(self.__class__.__name__, self.output, self.bias, self.error)
+        return "Neuron({}, {}, {})".format(self.output, self.bias, self.error)
 
     def set_activation_f(self, func):
         self.activation_f = func
@@ -301,7 +305,7 @@ class Connection:
         self.delta_weight = 0
 
     def __repr__(self):
-        return "{}({}, {})".format(self.__class__.__name__, self.weight, self.delta_weight)
+        return "Connection({}, {})".format(self.weight, self.delta_weight)
 
     def adjust_weight(self, gradient):
         # pass the gradient to the source neuron
@@ -318,10 +322,10 @@ class Connection:
 def dist(v1, v2):
     value = v1 - v2
     if value > 100:
-        return 100
+        return 10
     if value < 0:
         return 0
-    return value
+    return value / 10
 
 
 # create the controller
@@ -373,7 +377,7 @@ def evaluate_networks(nets):
         # run the game and calculate the final fitness
         game.run()
         net.fitness = game.score * 1000 - game.steps
-        print(f"{i:3}: {net.fitness}, {net.strikes}")
+        print(f"{i:3}: {net.fitness}")
 
 
 def select_networks(nets):
@@ -397,7 +401,8 @@ if __name__ == "__main__":
     net_args = [12, 10, 8, 4]
     networks = [Network(net_args) for _ in range(population)]
 
-    best_net = None
+    best_net_data = (0, [])
+    snake_data = []
     generation = 0
     max_generation = 50
     while True:
@@ -407,11 +412,18 @@ if __name__ == "__main__":
         evaluate_networks(networks)
         # sort with fittest at the top
         networks.sort(key=lambda n: n.fitness, reverse=True)
-        print(f"Best fitness: {networks[0].fitness}")
-        # save the best net
-        if best_net is None or networks[0].fitness > best_net.fitness:
-            best_net = networks[0]
+        best_net = networks[0]
+        # save the best net if needed
+        print(f"Best fitness: {best_net.fitness}")
+        if best_net.fitness > best_net_data[0]:
+            best_net_data = (best_net.fitness, best_net.export_data())
             print(f"New best: {best_net.fitness}\n")
+        snake_data.append([
+            generation,  # current generation
+            best_net_data[0],  # current best fitness
+            # average fitness of a population
+            lstr(sum(n.fitness for n in networks) / len(networks)),
+        ])
         if generation >= max_generation:
             break
         # select for the next generation
@@ -419,11 +431,19 @@ if __name__ == "__main__":
         # crossover for the next generation
         networks = crossover_networks(networks)
 
-    # run the best saved network
+    # save data for the performance graph
+    with open("snake_data.csv", 'w') as file:
+        writer = csv.writer(file, delimiter=';')  # delimit with semicolons
+        writer.writerows(snake_data)
+    # restore the best network
+    best_net = Network(net_args)
+    best_net.fitness = best_net_data[0]
+    best_net.import_data(best_net_data[1])
+    # run it
     print(f"\nRunning best network: {best_net.fitness} fitness")
     # attach the controller
     game.external = partial(controller, best_net)
-    game.fps = 8
+    game.fps = 6
     while not game.window.has_exit:
         # reset the game
         game.reset()
