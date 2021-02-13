@@ -114,15 +114,9 @@ class Network:
         for learning_set in dataset:
             if not isinstance(learning_set, tuple) or len(learning_set) != 2:
                 raise IntegrityError("Incorrect leaning dataset entry!")
-            if (
-                not isinstance(learning_set[0], list)
-                or len(learning_set[0]) != len(self.input_layer)
-            ):
+            if len(learning_set[0]) != len(self.input_layer):
                 raise IntegrityError("Incorrect input dataset entry!")
-            if (
-                not isinstance(learning_set[1], list)
-                or len(learning_set[1]) != len(self.output_layer)
-            ):
+            if len(learning_set[1]) != len(self.output_layer):
                 raise IntegrityError("Incorrect output dataset entry!")
         # teach until the desired error is reached
         network_error = inf
