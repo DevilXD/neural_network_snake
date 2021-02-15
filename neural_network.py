@@ -24,6 +24,7 @@ def sigmoid(value, *, derivative: bool = False):
         v = sigmoid(value)
         return v * (1 - v)
     else:
+        # Overflow prevention
         if value < -709:
             return -1.0
         elif value > 709:
@@ -35,6 +36,7 @@ def tanh(value, *, derivative: bool = False):
     if derivative:
         return 1 - pow(tanh(value), 2)
     else:
+        # Overflow prevention
         if value < -709:
             return -1.0
         elif value > 709:
