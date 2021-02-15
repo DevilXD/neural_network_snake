@@ -35,9 +35,9 @@ def train_network():
         net.set_activation_f(activation_f)
         errors_data = []
         for i, error in enumerate(net.teach_loop(samples), start=1):
-            if i > number:
-                break
             errors_data.append(error)
+            if i >= cycles:
+                break
         return errors_data
 
     funs_data = []
@@ -48,7 +48,7 @@ def train_network():
 
 
 times = 10
-number = 100
+cycles = 100
 # repeat for average
 avg_data = train_network()
 for _ in range(times-1):
