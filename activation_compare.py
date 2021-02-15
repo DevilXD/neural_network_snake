@@ -11,10 +11,10 @@ setlocale(LC_ALL, '')
 funcs = (sigmoid, tanh, relu)
 # read data
 with open("bezdekIris.data", 'r') as file:
-    samples: List[Entry] = []
+    samples = []
     for row in csv.reader(file):
         iris_type = row[4]
-        iris_outputs: List[int] = [0, 0, 0]
+        iris_outputs = [0, 0, 0]
         if iris_type == "Iris-setosa":
             iris_outputs[0] = 1
         elif iris_type == "Iris-versicolor":
