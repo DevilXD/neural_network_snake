@@ -6,7 +6,6 @@ from functools import partial
 from contextlib import suppress
 from collections import namedtuple
 from locale import setlocale, LC_ALL, str as lstr
-from typing import Union, List, Tuple, Optional, Iterator, Generator
 
 from snake import Game
 
